@@ -1,0 +1,37 @@
+{
+  "name": "ts-soauth",
+  "version": "1.0.0",
+  "description": "Libsodium security framework for typescript",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "tsc && node dist/test.js",
+    "build:types": "tsc --project tsconfig.build.json",
+    "build:bundle": "tsc",
+    "build": "npm run build:types && npm run build:bundle",
+    "publish": "npm run build && npm pack"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AFwcxx/ts-soauth.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AFwcxx/ts-soauth/issues"
+  },
+  "homepage": "https://github.com/AFwcxx/ts-soauth#readme",
+  "dependencies": {
+    "@types/node": "^24.3.0",
+    "libsodium-wrappers": "0.7.16",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/libsodium-wrappers": "^0.7.14",
+    "cors": "2.8.6",
+    "express": "5.2.1",
+    "http-server": "14.1.1",
+    "typescript": "6.0.2"
+  }
+}
