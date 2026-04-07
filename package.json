@@ -5,11 +5,11 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "test": "tsc && node dist/test.js",
     "build:types": "tsc --project tsconfig.build.json",
     "build:bundle": "tsc",
     "build": "npm run build:types && npm run build:bundle",
-    "publish": "npm run build && npm pack"
+    "publish": "npm run build && npm pack",
+    "test:host": "npm run build && node ./dist/test/host"
   },
   "repository": {
     "type": "git",
@@ -23,12 +23,14 @@
   },
   "homepage": "https://github.com/AFwcxx/ts-soauth#readme",
   "dependencies": {
-    "@types/node": "^24.3.0",
     "libsodium-wrappers": "0.7.16",
     "zod": "4.3.6"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/libsodium-wrappers": "^0.7.14",
+    "@types/node": "^25.5.2",
     "cors": "2.8.6",
     "express": "5.2.1",
     "http-server": "14.1.1",
