@@ -1,133 +1,340 @@
 # ts-soauth
 
-```sh
- ____          _         _   _     
-/ ___|  ___   / \  _   _| |_| |__  
-\___ \ / _ \ / _ \| | | | __| '_ \ 
- ___) | (_) / ___ \ |_| | |_| | | |
-|____/ \___/_/   \_\__,_|\__|_| |_|
+`ts-soauth` is a libsodium-based authentication and encrypted messaging toolkit for TypeScript/JavaScript projects.
+
+It supports two practical deployment patterns:
+
+- **Node/server-side**: run as a **Host** service and/or as a **Machine** client for server-to-server communication.
+- **Browser/human-side**: use `browser/soauth.js` for human registration/login negotiation and encrypted message exchange from the browser.
+
+The design assumes untrusted networks (including potential man-in-the-middle interception) and uses signed negotiation plus per-session encryption keys/tokens.
+
+---
+
+## What this package is
+
+`ts-soauth` provides cryptographic building blocks and reference flows for:
+
+1. **Negotiation / authentication** (register or login intent).
+2. **Session-bound encrypted communication** after successful negotiation.
+3. **Token-gated access** to private host resources.
+
+The repository includes:
+
+- Node library modules (`src/host.ts`, `src/machine.ts`).
+- Node demo/test programs (`src/test/*`).
+- Browser client implementation and demo (`browser/soauth.js`, `browser/test/*`).
+
+---
+
+## Supported usage modes
+
+### 1) Host (Node/server)
+
+Use `Host` in your backend to:
+
+- initialize host configuration (`secret`, list of served host IDs),
+- process negotiation requests,
+- verify issued session tokens,
+- encrypt/decrypt host↔client messages.
+
+Reference implementation: `src/test/host.ts`.
+
+### 2) Machine (Node/server-to-server)
+
+Use `Machine` in backend clients/services to:
+
+- derive deterministic machine identity/public key from `secret + hostId`,
+- encrypt payloads to a Host,
+- decrypt Host responses,
+- optionally compute a machine fingerprint.
+
+Reference flow: `src/test/machine.ts` against Host `/machine` route in `src/test/host.ts`.
+
+### 3) Browser / human client
+
+Use `browser/soauth.js` for human flows:
+
+- `setup(...)` to configure host details and fingerprint provider,
+- `negotiate('register' | 'login', ...)` for authentication,
+- `exchange(...)` for encrypted post-login communication,
+- `save/load` for encrypted client-side session persistence.
+
+Reference demo: `browser/test/index.html` + `browser/test/index.js`.
+
+---
+
+## Core concepts
+
+### Host identity
+
+The Host has a deterministic signing keypair per `hostId`, derived from Host `secret + hostId`. Clients pin/know the Host signing public key ahead of time.
+
+### Signing keys (identity)
+
+Client negotiation messages are signed. In the browser flow, signing keys are deterministically derived from user credential material and the host signing public key.
+
+### Box keys (encryption)
+
+Encrypted transport uses libsodium box primitives. Negotiation and message exchange rely on box keypairs and nonces for confidentiality.
+
+### Token/session behavior
+
+After successful negotiation, Host returns a token tied to host/client key material. That token is required for protected Host operations in the demo flow (for example `/message` and `/private/*`).
+
+### Fingerprinting
+
+A fingerprint header (`SoAuth-Fingerprint`) is used by demo server logic to correlate client/device context (browser demo via WebGL provider; machine demo uses a fixed sample fingerprint).
+
+### MITM security framing
+
+The protocol is designed for hostile networks:
+
+- Negotiation request authenticity is validated via signature checks.
+- Negotiation response secrecy is protected with sealed boxes.
+- Post-negotiation traffic is encrypted with per-session keying material.
+- Tokens are verified before allowing private operations.
+
+---
+
+## High-level communication flow
+
+1. **Host bootstrap**
+   - Host calls `Host.setup({ secret, serves: [...] })`.
+   - Host can derive/publish signing public keys for served host IDs.
+
+2. **Client negotiation request**
+   - Client prepares signed data including intention (`register`/`login`) and its box public key.
+   - Client seals that payload to Host signing public key and sends `{ hostId, sealed }`.
+
+3. **Host negotiation validation**
+   - Host opens sealed payload with host signing keypair.
+   - Host validates client signature and expected host signing key reference.
+   - Host derives auth material, creates token + host box public key, seals response to client box public key.
+
+4. **Post-negotiation exchange**
+   - Client sends encrypted payload + nonce + token.
+   - Host validates token, derives peer box key context, decrypts request, encrypts response.
+
+5. **Token-gated private resource access (demo)**
+   - Demo Host route `/private/{*path}` requires token (`?soauth=...`) and serves from `private/` only when valid.
+
+---
+
+## Installation
+
+### Use as a package
+
+```bash
+npm install ts-soauth
 ```
 
-A Libsodium based authentication framework.\
-Set it up either as a centralised service that allows single host or multiple hosts management.\
-Where the clients can be either human (browser) or machine (computer).\
-Built with the assumption that there is a man-in-the-middle.\
-Easy. Secure. Private.
+### Work in this repository
 
-## Communication topology
+```bash
+npm install
+npm run build
+```
 
-> No issue with multiple layer of proxies.
+---
+
+## Quick start (repo demos)
+
+> Open separate terminals for Host and clients.
+
+### 1) Run Host demo
+
+```bash
+npm run test:host
+```
+
+Starts Express Host on port `3000` by default.
+
+### 2) Run browser/human demo
+
+```bash
+npm run test:human
+```
+
+Starts static server (`http-server`) and opens `/browser/test`.
+
+### 3) Run machine demo
+
+```bash
+npm run test:machine
+```
+
+Sends encrypted machine message to Host `/machine` route and decrypts Host response.
+
+---
+
+## Package API overview
+
+## Exports
+
+```ts
+import { Host, Machine } from 'ts-soauth'
+```
+
+or default export:
+
+```ts
+import Soauth from 'ts-soauth'
+// Soauth.Host, Soauth.Machine
+```
+
+### `Host` API (`src/host.ts`)
+
+- `setup(options)`
+  - Requires `secret` and `serves` (array of host IDs).
+- `negotiate(request)`
+  - Input envelope typically `{ hostId, sealed }`.
+  - Returns `{ success, message, sealed, data }`.
+- `verify_token(hostId, boxPublicKey, token)`
+- `encrypt(message, hostId, boxPublicKey)`
+- `decrypt(data, hostId, boxPublicKey)`
+- `get_box_pubkey(hostId, boxPublicKey)`
+- `check_store_data(definition, data)`
+- constants:
+  - `SOAUTH_HUMAN_STOREDATA`
+  - `SOAUTH_MACHINE_STOREDATA`
+
+### `Machine` API (`src/machine.ts`)
+
+- `setup(options)`
+  - Requires `secret`, `hostId`, `hostPublicKey`.
+- `get_pubkey()`
+- `encrypt(message)`
+- `decrypt({ ciphertext, nonce })`
+- `fingerprint(raw?)`
+- `serialize_message(message)`
+
+### Browser client API (`browser/soauth.js`)
+
+- `setup(options)`
+- `negotiate(intention, credential, pathname, meta?)`
+- `exchange(message, pathname, requestId?)`
+- `cancel_exchange(requestId)`
+- `save(secret, manual?)`
+- `load(secret, options, data?)`
+- `clear_local_storage(hostSignPublicKey?)`
+
+---
+
+## Usage examples
+
+## Minimal Host (Node)
+
+```ts
+import sodium from 'libsodium-wrappers'
+import { Host } from 'ts-soauth'
+
+await sodium.ready
+
+Host.setup({
+  secret: 'your-secret',
+  serves: ['my-host-id'],
+})
+
+// inside your route handler:
+// const result = Host.negotiate(req.body)
+```
+
+See complete server flow in `src/test/host.ts`.
+
+## Minimal Machine client (Node)
+
+```ts
+import sodium from 'libsodium-wrappers'
+import { Machine } from 'ts-soauth'
+
+await sodium.ready
+
+Machine.setup({
+  secret: 'your-secret',
+  hostId: 'my-host-id',
+  hostPublicKey: '<host-box-public-key-hex>',
+})
+
+const encrypted = Machine.encrypt({ hello: 'world' })
+// POST encrypted to host, then:
+// const response = Machine.decrypt({ ciphertext, nonce })
+```
+
+See runnable sample in `src/test/machine.ts`.
+
+## Browser integration sketch
 
 ```js
-          /---> Client Browser(s)
-Host <---X                                       /---> Proxy <---> Client Machine
-          \---> Client Machine, also a Host <---X
-                                                 \---> Client Machine
+import soauth from '../soauth.js'
+import { webgl } from './webgl.js'
+
+await soauth.setup({
+  hostId,
+  hostSignPublicKey,
+  hostEndpoint,
+  webgl,
+})
+
+await soauth.negotiate('login', { username, password }, '/negotiate', { username })
+const reply = await soauth.exchange('hello', '/message')
 ```
 
-## Demo
+See full demo in `browser/test/index.js`.
 
-### As host
-```js
-// This will create an Express server
-$ npm run test:host
+---
+
+## Project structure
+
+```text
+.
+├── browser/
+│   ├── soauth.js            # Browser client implementation
+│   └── test/                # Browser demo assets
+├── private/                 # Demo private resources served behind token check
+├── src/
+│   ├── host.ts              # Host API
+│   ├── machine.ts           # Machine API
+│   ├── index.ts             # Package exports
+│   └── test/
+│       ├── host.ts          # Express host demo
+│       └── machine.ts       # Machine demo client
+├── package.json
+└── README.md
 ```
 
-### As human on browser
-```js
-// Note: Require Host to run
-// This will spin up a simple webserver, open you default browser and present a form - use this to test registration, login, communication encryption and retrieving private sensitive data
-$ npm run test:human
+---
+
+## Security notes and caveats
+
+- Keep Host `secret` protected; key derivation depends on it.
+- Use HTTPS in non-local environments (browser client enforces this for non-local hosts).
+- Treat tokens as session transport credentials; do not rely on them alone as durable identity.
+- Browser persistence (`save/load`) stores encrypted session state; do **not** persist human signing private keys.
+- Fingerprinting is signal/correlation data, not a standalone authentication factor.
+
+---
+
+## Development and demo commands
+
+```bash
+npm install
+npm run build
+npm run test:host
+npm run test:human
+npm run test:machine
 ```
 
-### As machine
-```js
-// Note: Require Host to run
-// This will test s2s communication with the host
-$ npm run test:machine
-```
+Scripts are defined in `package.json`.
 
+---
 
-## Concept
+## Practical troubleshooting
 
-1. The clients know the public identity of the host.
-2. The host should never store any client private credentials.
-
-Main keypoints:
-
-- **Signing keys:** Deterministic. Used for human identity. Password not required, as long as the human memory is intact.
-- **Box keys:** Random on every negotation. Used for encrypted communications.
-- **Token:** Random on every negotation. Used for sessions to retrieve private readonly data.
-- **Fingerprint:** Unique hash of the client resource information.
-
-## Flow
-
-|  CLIENT   | MAN IN THE MIDDLE |   HOST  |
-| ------------- | ------------- |------------- |
-|  |  | - Generate Signing key pairs and share the Signing public key to respective clients. |
-| - Has the host Signing public key. <br />- Generate Signing key pairs and Box key pairs.<br />- Create a message that consists of the Box public key.<br />- Sign the message with Signing private key.<br />-Seal the message <br />- Send the signature and Signing public key as negotiation. | Has nothing useful here. |  |
-|  |  | - Receives the negotation request, unseal and validate the signature and Signing public key.<br />- If valid, generate Box key pairs and Token.<br />- Create a message that consists of the Box public key and Token.<br />- Seal the message with client Box private key and respond to the client with only the seal. |
-| Receives the negotiation respond, unseal and keep the host Box public key. | Has nothing useful here.  |  |
-| Negotation ends. Communication begins. |
-| - Use Box private key and host's Box public key to encrypt message.<br />- Send the ciphertext, nonce and Token.|  | Use the Token session to obtain client's Box public key and decrypt it with host own Box private key.|
-| | **In total, it may hold:**<br/><br />- Nothing useful | |
-
-The Man in the Middle:
-
-- Replaying the client signing process with it's own signature to provide it's own
-Box public key will only become a new identity since it cannot provide the
-client's Signing public key (identity) and have a valid signature.
-- Replaying the signing process as the host will only generate invalid
-signature when the client validates it.
-- Passing the client's Token with it's own ciphertext and nonce
-(using it's own Box key pairs) in the communication will only point the host
-to retrieve the invalid or non-exist public key and will not able to decrypt the ciphertext.
-- Since the Token lifetime remains alive until the next negotation process, Tokens
-should NEVER be used to retrieve sensitive information. Useful for static files such as javascript, json, stylesheet or html in private scope. 
-Useful to isolate contents that should only be retrievable after authenticated.
-
-About the Persistent mode:
-
-- Client uses local storage (or any secured storage method) to store only the Box key pairs.
-Never the signing key pairs.
-- Box key pairs lifetime is until the next signing process or
-when the local storage is cleared.
-- If the local storage is compromised or Box key pairs is copied,
-destroy the client Box public key or re-negotiate.
-- <b>DO NOT</b> store Signing private key as that is the client identity.
-
-## Specifications
-
-### File structure
-
-```
-├── src
-| └── test : Source files for Host and Machine test
-| └── index.ts : Barrel source file for library consumption
-| └── host.ts : Host source file
-| └── machine.ts : Machine source file
-|
-├── private : Static sensitive resources that requires token
-|
-└── browser : Human resource
-  └── test : Source files for browser to use
-  └── soauth.js : Human source file for browser to use
-```
-
-### WebGL Fingerprint
-
-The fingerprint is a hash of the client device user-agent and client device
-graphical capabilities. User-agent as a sole unique device identifier is
-insufficient as it only has the CPU make model, browser type, and version.
-However, different machines would not have similar graphical rendering
-criteria, and using this information helps generate even more unique device id.
-
-[WebGL Repository](https://github.com/AFwcxx/webgl-detect)
-
-
-### Dependencies
-
-- [Libsodium](https://github.com/jedisct1/libsodium.js)
-  - [NPM](https://www.npmjs.com/package/libsodium-wrappers)
-  - [Browser](https://github.com/jedisct1/libsodium.js/tree/master/dist/browsers)
+- **"SoAuth: libsodium is not ready yet."**
+  - Ensure `await sodium.ready` before calling Node APIs.
+- **Browser setup fails with host endpoint error**
+  - Use `https://` for non-local hosts; `http://127.0.0.1` is allowed for local dev.
+- **`exchange` fails after reload**
+  - Re-negotiate or verify `load(...)` succeeded and session/token is still valid.
 
