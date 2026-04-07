@@ -10,7 +10,7 @@
     "build": "npm run build:types && npm run build:bundle",
     "publish": "npm run build && npm pack",
     "test:host": "npm run build && node ./dist/test/host",
-    "test:human": "http-server -o /browser-test",
+    "test:human": "npm run build && http-server -o /browser/test",
     "test:machine": "npm run build && node ./dist/test/machine"
   },
   "repository": {

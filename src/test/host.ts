@@ -52,7 +52,13 @@ const PrivateQuerySchema = z.looseObject({
 });
 
 const PrivateParamsSchema = z.looseObject({
-  "0": z.string().optional(),
+  path: z.preprocess((value) => {
+    if (Array.isArray(value)) {
+      return value.join("/");
+    }
+
+    return typeof value === "string" ? value : undefined;
+  }, z.string().optional()),
   soauth: z.string().min(1).optional(),
 });
 
@@ -118,18 +124,19 @@ function getErrorMessage(error: unknown): string {
 
 const env: AppEnv = EnvSchema.parse(process.env);
 const port: NormalizedPort = normalizePort(env.PORT ?? "3000");
-const PRIVATE_DIR = path.resolve(env.PWD, "host-test/private");
+const PRIVATE_DIR = path.resolve(env.PWD, "private");
 
 const app = express();
 app.set("port", port);
 app.disable("x-powered-by");
-app.use(
-  cors({
-    origin: env.CORS_ORIGIN ?? false,
-    methods: ["POST", "GET"],
-    allowedHeaders: ["Content-Type", "soauth-fingerprint"],
-  }),
-);
+const corsOptions = {
+  origin: "http://127.0.0.1:8080", // replace with your frontend's exact origin
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "soauth-fingerprint"],
+};
+
+app.use(cors(corsOptions));
+app.options("/{*any}", cors(corsOptions));
 app.use(express.json({ limit: "16kb" }));
 
 const server = http.createServer(app);
@@ -339,7 +346,7 @@ app.post("/machine", (req, res, next): void => {
   }
 });
 
-app.all("/private/*", async (req, res, next): Promise<void> => {
+app.all("/private/{*path}", async (req, res, next): Promise<void> => {
   const fullUrl = `${req.protocol}://${String(req.get("host"))}${req.originalUrl}`;
   console.log("Requested for:", fullUrl);
 
@@ -365,10 +372,13 @@ app.all("/private/*", async (req, res, next): Promise<void> => {
       throw new Error("Invalid token.");
     }
 
-    const relativePath = parsedParams.data["0"] ?? "";
+    const relativePath = parsedParams.data.path ?? "";
     const filePath = path.resolve(PRIVATE_DIR, relativePath);
 
-    if (filePath !== PRIVATE_DIR && !filePath.startsWith(`${PRIVATE_DIR}${path.sep}`)) {
+    if (
+      filePath !== PRIVATE_DIR &&
+      !filePath.startsWith(`${PRIVATE_DIR}${path.sep}`)
+    ) {
       res.status(400).send("Invalid file path");
       return;
     }
