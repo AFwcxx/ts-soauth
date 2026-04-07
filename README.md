@@ -126,7 +126,7 @@ The protocol is designed for hostile networks:
 ### Use as a package
 
 ```bash
-npm install ts-soauth
+npm install github:AFwcxx/ts-soauth
 ```
 
 ### Work in this repository
