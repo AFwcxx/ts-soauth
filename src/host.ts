@@ -3,6 +3,9 @@
 import _sodium from "libsodium-wrappers";
 import { z } from "zod";
 
+import { BoxKeyPair, SoAuthState, EncryptResult } from "./interfaces/soauth.i";
+import { hexString } from "./schemas/soauth";
+
 // TODO: If this package moves to ESM/ES2022+, restore top-level await here
 // in order to match the original import-time readiness semantics exactly.
 const sodiumReady = _sodium.ready;
@@ -15,11 +18,6 @@ void sodiumReady.then(() => {
 const SOAUTH_INTENTIONS = ["register", "login"] as const;
 
 type SoauthIntention = (typeof SOAUTH_INTENTIONS)[number];
-
-type BoxKeyPair = {
-  publicKey: Uint8Array;
-  privateKey: Uint8Array;
-};
 
 type AuthKeyPair = BoxKeyPair & {
   token: Uint8Array;
@@ -50,11 +48,6 @@ type NegotiateResponse = {
   data: NegotiateData | null;
 };
 
-type EncryptResult = {
-  ciphertext: string;
-  nonce: string;
-};
-
 const SecretSchema = z.preprocess(
   (value) => {
     if (!value) {
@@ -67,25 +60,6 @@ const SecretSchema = z.preprocess(
 );
 
 const ServesSchema = z.array(z.string()).min(1);
-
-const HEX_REGEX = /^[0-9a-f]+$/i;
-
-function hexString(options?: {
-  exactBytes?: number;
-  maxBytes?: number;
-}): z.ZodString {
-  let schema = z.string().regex(HEX_REGEX, "Invalid hex format");
-
-  if (typeof options?.exactBytes === "number") {
-    schema = schema.length(options.exactBytes * 2);
-  }
-
-  if (typeof options?.maxBytes === "number") {
-    schema = schema.max(options.maxBytes * 2);
-  }
-
-  return schema;
-}
 
 const NegotiationEnvelopeSchema = z.looseObject({
   sealed: hexString({ maxBytes: 16_384 }),
@@ -135,18 +109,12 @@ const GetBoxPubkeyParamsSchema = z.object({
 const DecryptEnvelopeSchema = z.looseObject({
   ciphertext: hexString({ maxBytes: 64_000 }),
   nonce: hexString({ exactBytes: 24 }),
-  token: hexString({ exactBytes: 64 }).optional(),
+  token: hexString({ exactBytes: 64 }),
 });
 
 type DecryptEnvelope = z.infer<typeof DecryptEnvelopeSchema>;
 
-type SoauthState = {
-  sodium: typeof _sodium;
-  secret: string | false;
-  serves: string[] | false;
-};
-
-const SOAUTH: SoauthState = {
+const SOAUTH: SoAuthState = {
   sodium: _sodium,
   secret: false,
   serves: false,
@@ -539,33 +507,35 @@ export const decrypt = function (
   const parsedData: DecryptEnvelope = parsedDataResult.data;
   const parsedKey = parsedKeyResult.data;
 
-  if (
-    typeof parsedData.token === "string" &&
-    !verify_token(parsedKey.hostId, parsedKey.boxPublicKey, parsedData.token)
-  ) {
+  if (!verify_token(parsedKey.hostId, parsedKey.boxPublicKey, parsedData.token)) {
     return false;
   }
 
   const sodium = getSodium();
-  const auth = generate_auth(parsedKey.hostId, parsedKey.boxPublicKey);
-
-  const decrypted = sodium.crypto_box_open_easy(
-    sodium.from_hex(parsedData.ciphertext),
-    sodium.from_hex(parsedData.nonce),
-    sodium.from_hex(parsedKey.boxPublicKey),
-    auth.privateKey,
-  );
-
-  if (!decrypted) {
-    return false;
-  }
-
-  const message = sodium.to_string(decrypted);
 
   try {
-    return JSON.parse(message) as unknown;
+    const auth = generate_auth(parsedKey.hostId, parsedKey.boxPublicKey);
+
+    const decrypted = sodium.crypto_box_open_easy(
+      sodium.from_hex(parsedData.ciphertext),
+      sodium.from_hex(parsedData.nonce),
+      sodium.from_hex(parsedKey.boxPublicKey),
+      auth.privateKey,
+    );
+
+    if (!decrypted) {
+      return false;
+    }
+
+    const message = sodium.to_string(decrypted);
+
+    try {
+      return JSON.parse(message) as unknown;
+    } catch {
+      return message;
+    }
   } catch {
-    return message;
+    return false;
   }
 };
 

@@ -4,6 +4,9 @@ import os from "node:os";
 import _sodium from "libsodium-wrappers";
 import { z } from "zod";
 
+import { BoxKeyPair, SoAuthState, EncryptResult } from "./interfaces/soauth.i";
+import { hexString } from "./schemas/soauth";
+
 // TODO: If this package moves to ESM/ES2022+, restore top-level await
 // to match the original import-time readiness semantics exactly.
 const sodiumReady: Promise<unknown> = _sodium.ready;
@@ -13,8 +16,6 @@ void sodiumReady.then(() => {
   sodiumInitialized = true;
 });
 
-const HEX_REGEX = /^[0-9a-f]+$/i;
-
 const coerceNonEmptyString = (value: unknown): unknown => {
   if (!value) {
     return value;
@@ -23,30 +24,6 @@ const coerceNonEmptyString = (value: unknown): unknown => {
   return String(value);
 };
 
-function hexString(options?: {
-  exactBytes?: number;
-  minBytes?: number;
-  maxBytes?: number;
-}): z.ZodString {
-  let schema = z
-    .string()
-    .regex(HEX_REGEX, "Invalid hex format")
-    .refine((value) => value.length % 2 === 0, "Invalid hex length");
-
-  if (typeof options?.exactBytes === "number") {
-    schema = schema.length(options.exactBytes * 2);
-  }
-
-  if (typeof options?.minBytes === "number") {
-    schema = schema.min(options.minBytes * 2);
-  }
-
-  if (typeof options?.maxBytes === "number") {
-    schema = schema.max(options.maxBytes * 2);
-  }
-
-  return schema;
-}
 
 const SetupOptionsSchema = z.object({
   secret: z.preprocess(coerceNonEmptyString, z.string().min(1)).optional(),
@@ -64,15 +41,6 @@ const DecryptPayloadSchema = z.object({
 type SetupOptions = z.infer<typeof SetupOptionsSchema>;
 // type DecryptPayload = z.infer<typeof DecryptPayloadSchema>;
 
-type BoxKeyPair = {
-  publicKey: Uint8Array;
-  privateKey: Uint8Array;
-};
-
-type EncryptResult = {
-  ciphertext: string;
-  nonce: string;
-};
 
 type CpuData = {
   cores?: number;
@@ -92,14 +60,7 @@ type FingerprintInformation = {
   memory: number;
 };
 
-type SoauthState = {
-  sodium: typeof _sodium;
-  secret: string | false;
-  hostId: string | false;
-  hostPublicKey: Uint8Array | false;
-};
-
-const SOAUTH: SoauthState = {
+const SOAUTH: SoAuthState = {
   sodium: _sodium,
   secret: false,
   hostId: false,
