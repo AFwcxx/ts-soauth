@@ -1,8 +1,5 @@
 import os from "node:os";
-type EncryptResult = {
-    ciphertext: string;
-    nonce: string;
-};
+import { EncryptResult } from "./interfaces/soauth.i";
 type CpuData = {
     cores?: number;
     models?: string[];

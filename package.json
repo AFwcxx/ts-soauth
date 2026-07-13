@@ -9,6 +9,7 @@
     "build:bundle": "tsc",
     "build": "npm run build:types && npm run build:bundle",
     "publish": "npm run build && npm pack",
+    "test:host-instances": "npm run build && node ./dist/test/host-instances",
     "test:host": "npm run build && node ./dist/test/host",
     "test:human": "npm run build && http-server -o /browser/test",
     "test:machine": "npm run build && node ./dist/test/machine"

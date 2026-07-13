@@ -8,44 +8,28 @@ exports.fingerprint = fingerprint;
 const node_os_1 = __importDefault(require("node:os"));
 const libsodium_wrappers_1 = __importDefault(require("libsodium-wrappers"));
 const zod_1 = require("zod");
+const soauth_1 = require("./schemas/soauth");
 const sodiumReady = libsodium_wrappers_1.default.ready;
 let sodiumInitialized = false;
 void sodiumReady.then(() => {
     sodiumInitialized = true;
 });
-const HEX_REGEX = /^[0-9a-f]+$/i;
 const coerceNonEmptyString = (value) => {
     if (!value) {
         return value;
     }
     return String(value);
 };
-function hexString(options) {
-    let schema = zod_1.z
-        .string()
-        .regex(HEX_REGEX, "Invalid hex format")
-        .refine((value) => value.length % 2 === 0, "Invalid hex length");
-    if (typeof options?.exactBytes === "number") {
-        schema = schema.length(options.exactBytes * 2);
-    }
-    if (typeof options?.minBytes === "number") {
-        schema = schema.min(options.minBytes * 2);
-    }
-    if (typeof options?.maxBytes === "number") {
-        schema = schema.max(options.maxBytes * 2);
-    }
-    return schema;
-}
 const SetupOptionsSchema = zod_1.z.object({
     secret: zod_1.z.preprocess(coerceNonEmptyString, zod_1.z.string().min(1)).optional(),
     hostId: zod_1.z.preprocess(coerceNonEmptyString, zod_1.z.string().min(1)).optional(),
     hostPublicKey: zod_1.z
-        .preprocess(coerceNonEmptyString, hexString({ exactBytes: 32 }))
+        .preprocess(coerceNonEmptyString, (0, soauth_1.hexString)({ exactBytes: 32 }))
         .optional(),
 });
 const DecryptPayloadSchema = zod_1.z.object({
-    ciphertext: hexString({ minBytes: 1 }),
-    nonce: hexString({ exactBytes: 24 }),
+    ciphertext: (0, soauth_1.hexString)({ minBytes: 1 }),
+    nonce: (0, soauth_1.hexString)({ exactBytes: 24 }),
 });
 const SOAUTH = {
     sodium: libsodium_wrappers_1.default,

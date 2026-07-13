@@ -1,6 +1,11 @@
+import { EncryptResult } from "./interfaces/soauth.i";
 declare const SOAUTH_INTENTIONS: readonly ["register", "login"];
 type SoauthIntention = (typeof SOAUTH_INTENTIONS)[number];
-type NegotiateData = {
+export type HostOptions = {
+    secret: string;
+    serves: string[];
+};
+export type NegotiateData = {
     intention: SoauthIntention;
     hostId: string;
     boxPublicKey: string;
@@ -8,20 +13,24 @@ type NegotiateData = {
     meta: unknown;
     token: string;
 };
-type NegotiateResponse = {
+export type NegotiateResponse = {
     success: boolean;
     message: string;
     sealed: string | null;
     data: NegotiateData | null;
 };
-type EncryptResult = {
-    ciphertext: string;
-    nonce: string;
+export type HostInstance = {
+    serialize_message: typeof serialize_message;
+    negotiate: (request: unknown) => NegotiateResponse;
+    verify_token: (hostId: unknown, boxPublicKey: unknown, token: unknown) => boolean;
+    encrypt: (message: unknown, hostId: unknown, boxPublicKey: unknown) => EncryptResult;
+    decrypt: (data: unknown, hostId: unknown, boxPublicKey: unknown) => unknown | false;
+    get_box_pubkey: (hostId: unknown, boxPublicKey: unknown) => string;
+    check_store_data: typeof check_store_data;
+    SOAUTH_HUMAN_STOREDATA: typeof SOAUTH_HUMAN_STOREDATA;
+    SOAUTH_MACHINE_STOREDATA: typeof SOAUTH_MACHINE_STOREDATA;
 };
-export declare const setup: (options?: unknown) => void;
 export declare const serialize_message: (message: unknown) => string;
-export declare const negotiate: (request: unknown) => NegotiateResponse;
-export declare const verify_token: (hostId: unknown, boxPublicKey: unknown, token: unknown) => boolean;
 export declare const SOAUTH_HUMAN_STOREDATA: {
     readonly hostId: {
         readonly type: "string";
@@ -63,10 +72,14 @@ export declare const SOAUTH_MACHINE_STOREDATA: {
     };
 };
 export declare const check_store_data: (SOAUTH_STOREDATA: unknown, data: unknown) => boolean;
+export declare function createHost(options?: unknown): HostInstance;
+export declare const setup: (options?: unknown) => void;
+export declare const negotiate: (request: unknown) => NegotiateResponse;
+export declare const verify_token: (hostId: unknown, boxPublicKey: unknown, token: unknown) => boolean;
 export declare const encrypt: (message: unknown, hostId: unknown, boxPublicKey: unknown) => EncryptResult;
 export declare const decrypt: (data: unknown, hostId: unknown, boxPublicKey: unknown) => unknown | false;
 export declare const get_box_pubkey: (hostId: unknown, boxPublicKey: unknown) => string;
-declare const _default: {
+declare const Host: {
     setup: (options?: unknown) => void;
     serialize_message: (message: unknown) => string;
     negotiate: (request: unknown) => NegotiateResponse;
@@ -116,4 +129,4 @@ declare const _default: {
     decrypt: (data: unknown, hostId: unknown, boxPublicKey: unknown) => unknown | false;
     get_box_pubkey: (hostId: unknown, boxPublicKey: unknown) => string;
 };
-export default _default;
+export default Host;

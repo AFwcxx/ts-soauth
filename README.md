@@ -31,12 +31,16 @@ The repository includes:
 
 ### 1) Host (Node/server)
 
-Use `Host` in your backend to:
+Use an isolated Host instance in your backend to:
 
 - initialize host configuration (`secret`, list of served host IDs),
 - process negotiation requests,
 - verify issued session tokens,
 - encrypt/decrypt host↔client messages.
+
+Create a Host with `createHost(...)` when more than one independently
+configured Host may run in a process. The legacy static `Host` API remains
+available for single-Host applications.
 
 Reference implementation: `src/test/host.ts`.
 
@@ -100,7 +104,7 @@ The protocol is designed for hostile networks:
 ## High-level communication flow
 
 1. **Host bootstrap**
-   - Host calls `Host.setup({ secret, serves: [...] })`.
+   - Host calls `createHost({ secret, serves: [...] })`.
    - Host can derive/publish signing public keys for served host IDs.
 
 2. **Client negotiation request**
@@ -173,20 +177,30 @@ Sends encrypted machine message to Host `/machine` route and decrypts Host respo
 ## Exports
 
 ```ts
-import { Host, Machine } from 'ts-soauth'
+import { createHost, Host, Machine } from 'ts-soauth'
 ```
 
 or default export:
 
 ```ts
 import Soauth from 'ts-soauth'
-// Soauth.Host, Soauth.Machine
+// Soauth.createHost, Soauth.Host, Soauth.Machine
 ```
 
-### `Host` API (`src/host.ts`)
+### `createHost` API (`src/host.ts`)
+
+- `createHost(options)`
+  - Returns an isolated Host instance with private `secret` and served host IDs.
+  - Multiple instances may safely coexist in the same process.
+  - Instance credential operations accept only host IDs listed in `serves`.
+- Instance methods: `negotiate`, `verify_token`, `encrypt`, `decrypt`,
+  `get_box_pubkey`, `serialize_message`, and `check_store_data`.
+
+### Legacy `Host` API (`src/host.ts`)
 
 - `setup(options)`
   - Requires `secret` and `serves` (array of host IDs).
+  - Configures the legacy process-wide default Host for backward compatibility.
 - `negotiate(request)`
   - Input envelope typically `{ hostId, sealed }`.
   - Returns `{ success, message, sealed, data }`.
@@ -227,20 +241,39 @@ import Soauth from 'ts-soauth'
 
 ```ts
 import sodium from 'libsodium-wrappers'
-import { Host } from 'ts-soauth'
+import { createHost } from 'ts-soauth'
 
 await sodium.ready
 
-Host.setup({
+const host = createHost({
   secret: 'your-secret',
   serves: ['my-host-id'],
 })
 
 // inside your route handler:
-// const result = Host.negotiate(req.body)
+// const result = host.negotiate(req.body)
 ```
 
 See complete server flow in `src/test/host.ts`.
+
+### Multiple Hosts in one process
+
+```ts
+const customerAHost = createHost({
+  secret: process.env.CUSTOMER_A_SECRET,
+  serves: ['customer-a'],
+})
+const customerBHost = createHost({
+  secret: process.env.CUSTOMER_B_SECRET,
+  serves: ['customer-b'],
+})
+
+// Each instance derives and verifies credentials only with its own secret.
+const result = customerAHost.negotiate(req.body)
+```
+
+For existing single-Host applications, `Host.setup(...)` and all existing
+`Host.*` methods continue to work as the legacy default-instance wrapper.
 
 ## Minimal Machine client (Node)
 
@@ -337,4 +370,3 @@ Scripts are defined in `package.json`.
   - Use `https://` for non-local hosts; `http://127.0.0.1` is allowed for local dev.
 - **`exchange` fails after reload**
   - Re-negotiate or verify `load(...)` succeeded and session/token is still valid.
-

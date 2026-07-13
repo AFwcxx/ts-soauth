@@ -1,23 +1,14 @@
 import Host from "./host";
 import Machine from "./machine";
+import { createHost } from "./host";
+export { createHost } from "./host";
+export type { HostInstance, HostOptions, NegotiateData, NegotiateResponse, } from "./host";
 export { Host, Machine };
 declare const _default: {
     Host: {
         setup: (options?: unknown) => void;
         serialize_message: (message: unknown) => string;
-        negotiate: (request: unknown) => {
-            success: boolean;
-            message: string;
-            sealed: string | null;
-            data: {
-                intention: "register" | "login";
-                hostId: string;
-                boxPublicKey: string;
-                signPublicKey: string;
-                meta: unknown;
-                token: string;
-            } | null;
-        };
+        negotiate: (request: unknown) => import("./host").NegotiateResponse;
         verify_token: (hostId: unknown, boxPublicKey: unknown, token: unknown) => boolean;
         SOAUTH_HUMAN_STOREDATA: {
             readonly hostId: {
@@ -60,10 +51,7 @@ declare const _default: {
             };
         };
         check_store_data: (SOAUTH_STOREDATA: unknown, data: unknown) => boolean;
-        encrypt: (message: unknown, hostId: unknown, boxPublicKey: unknown) => {
-            ciphertext: string;
-            nonce: string;
-        };
+        encrypt: (message: unknown, hostId: unknown, boxPublicKey: unknown) => import("./interfaces/soauth.i").EncryptResult;
         decrypt: (data: unknown, hostId: unknown, boxPublicKey: unknown) => unknown | false;
         get_box_pubkey: (hostId: unknown, boxPublicKey: unknown) => string;
     };
@@ -71,12 +59,10 @@ declare const _default: {
         serialize_message: (message: unknown) => string;
         setup: (options?: unknown) => void;
         get_pubkey: () => string;
-        encrypt: (message: unknown) => {
-            ciphertext: string;
-            nonce: string;
-        };
+        encrypt: (message: unknown) => import("./interfaces/soauth.i").EncryptResult;
         decrypt: (data: unknown) => unknown | false;
         fingerprint: typeof import("./machine").fingerprint;
     };
+    createHost: typeof createHost;
 };
 export default _default;

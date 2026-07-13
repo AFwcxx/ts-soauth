@@ -4,9 +4,11 @@
 
 ## Architecture
 
-The published Node API exposes two singleton-style modules:
+The published Node API exposes an instance factory plus compatibility modules:
 
-- `Host`: server-side negotiation, token verification, encryption, and decryption.
+- `createHost(...)`: factory for isolated server-side negotiation, token
+  verification, encryption, and decryption instances.
+- `Host`: backward-compatible static wrapper around one legacy default instance.
 - `Machine`: deterministic machine identity, encryption/decryption, and machine fingerprinting.
 
 There is also a separate browser implementation in `browser/soauth.js`. It is not part of the TypeScript package exports.
@@ -26,7 +28,10 @@ Machine clients skip negotiation because their keypair is deterministically deri
 - Cryptography is provided by `libsodium-wrappers`.
 - Runtime input validation is handled with Zod.
 - Keys, nonces, ciphertexts, and tokens cross API boundaries as hexadecimal strings.
-- Host and machine configuration lives in module-global mutable state. This effectively makes each module a singleton and limits a process to one active configuration.
+- Each Host created with `createHost(...)` closes over a private secret and an
+  immutable copy of its served host IDs, so multiple Host instances can safely
+  coexist in a process. The legacy `Host` wrapper intentionally retains one
+  replaceable default instance for backward compatibility.
 - Authentication state is mostly deterministic rather than stored internally:
   - Host signing keys come from `host secret + hostId`.
   - Host session box keys come from `host secret + hostId + client public key`.
@@ -38,8 +43,10 @@ Machine clients skip negotiation because their keypair is deterministically deri
 The repository currently resembles a working reference implementation or early-stage security library more than a production-ready authentication framework.
 
 - The Node library compiles successfully with strict TypeScript.
-- The programs under `src/test/` are executable demonstrations rather than automated unit or integration tests.
-- There is no `npm test` script, CI configuration, linting, or coverage setup.
+- The programs under `src/test/` include executable demonstrations and an
+  automated Host-isolation test script (`npm run test:host-instances`).
+- There is no aggregate `npm test` script, CI configuration, linting, or
+  coverage setup.
 - The Express demo has a one-hour in-memory human-session TTL and demonstrates token-protected resources.
 - Machine registration is hardcoded in the demo.
 - The package uses CommonJS, targets ES2021, and emits declarations into `dist`.
