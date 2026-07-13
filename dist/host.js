@@ -334,7 +334,7 @@ function initializeHost(options = {}, enforceServedHostIds = true) {
         ]),
     };
 }
-function createHost(options = {}) {
+function createHost(options) {
     return initializeHost(options).host;
 }
 let legacyHost = null;
@@ -345,6 +345,7 @@ function getLegacyHost() {
     return legacyHost;
 }
 const setup = function (options = {}) {
+    legacyHost = null;
     const initialized = initializeHost(options, false);
     legacyHost = initialized.host;
     for (const [hostId, publicKey] of initialized.signingPublicKeys) {

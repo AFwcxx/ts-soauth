@@ -72,7 +72,7 @@ export declare const SOAUTH_MACHINE_STOREDATA: {
     };
 };
 export declare const check_store_data: (SOAUTH_STOREDATA: unknown, data: unknown) => boolean;
-export declare function createHost(options?: unknown): HostInstance;
+export declare function createHost(options: HostOptions): HostInstance;
 export declare const setup: (options?: unknown) => void;
 export declare const negotiate: (request: unknown) => NegotiateResponse;
 export declare const verify_token: (hostId: unknown, boxPublicKey: unknown, token: unknown) => boolean;

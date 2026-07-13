@@ -587,7 +587,7 @@ function initializeHost(
  * returned instance. A host ID must be listed in `serves` for instance methods
  * that derive or verify credentials.
  */
-export function createHost(options: unknown = {}): HostInstance {
+export function createHost(options: HostOptions): HostInstance {
   return initializeHost(options).host;
 }
 
@@ -602,6 +602,7 @@ function getLegacyHost(): HostInstance {
 }
 
 export const setup = function (options: unknown = {}): void {
+  legacyHost = null;
   const initialized = initializeHost(options, false);
   legacyHost = initialized.host;
 

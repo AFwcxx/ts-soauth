@@ -305,6 +305,13 @@ async function main(): Promise<void> {
   assert.equal(Host.verify_token(hostId, clientBoxPublicKey, betaToken), true);
   assert.equal(alpha.verify_token(hostId, clientBoxPublicKey, alphaToken), true);
 
+  // A rejected legacy reconfiguration must fail closed, not retain old keys.
+  assert.throws(() => Host.setup({ secret: "", serves: [hostId] }));
+  assert.throws(() =>
+    Host.verify_token(hostId, clientBoxPublicKey, betaToken),
+  );
+  assert.equal(beta.verify_token(hostId, clientBoxPublicKey, betaToken), true);
+
   console.log("Host instance isolation tests passed");
 }
 

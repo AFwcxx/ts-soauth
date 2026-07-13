@@ -161,6 +161,9 @@ async function main() {
     strict_1.default.equal(index_1.Host.verify_token(hostId, clientBoxPublicKey, alphaToken), false);
     strict_1.default.equal(index_1.Host.verify_token(hostId, clientBoxPublicKey, betaToken), true);
     strict_1.default.equal(alpha.verify_token(hostId, clientBoxPublicKey, alphaToken), true);
+    strict_1.default.throws(() => index_1.Host.setup({ secret: "", serves: [hostId] }));
+    strict_1.default.throws(() => index_1.Host.verify_token(hostId, clientBoxPublicKey, betaToken));
+    strict_1.default.equal(beta.verify_token(hostId, clientBoxPublicKey, betaToken), true);
     console.log("Host instance isolation tests passed");
 }
 void main().catch((error) => {
